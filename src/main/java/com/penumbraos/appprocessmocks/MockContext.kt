@@ -19,7 +19,11 @@ import java.io.File
 class MockContext(base: Context) : ContextWrapper(base) {
 
     var mockAttributionTag: String? = null
-    var mockAttributionSource: AttributionSource? = null
+
+    /**
+     * Defaults to com.android.settings and uid 1000
+     */
+    var mockAttributionSource: AttributionSource? = AttributionSource.Builder(1000).setPackageName("com.android.settings").setAttributionTag("*tag*").build()
     private val services = mutableMapOf<String, Any>()
     var mockApplicationContext: Context? = null
     var mockResources: Resources? = null

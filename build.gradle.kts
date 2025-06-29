@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.penumbraos.mockcontext"
+    namespace = "com.penumbraos.appprocessmocks"
     //noinspection GradleDependency
     compileSdk = 35
 

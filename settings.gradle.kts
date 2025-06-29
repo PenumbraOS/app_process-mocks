@@ -28,4 +28,4 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "mock-context"
+rootProject.name = "appProcessMocks"
