@@ -1,6 +1,5 @@
 import android.annotation.SuppressLint
 import android.app.ActivityThread
-import android.app.IApplicationThread
 import android.app.LoadedApk
 import android.content.AttributionSource
 import android.content.BroadcastReceiver
@@ -10,24 +9,25 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.ApplicationInfo
 import android.content.res.AssetManager
 import android.content.res.Resources
 import android.os.Looper
 import java.io.File
 
 @SuppressLint("DiscouragedPrivateApi", "UnspecifiedRegisterReceiverFlag")
-class MockContext(base: Context) : ContextWrapper(base) {
+class MockContext(base: Context, basePackageName: String? = null) : ContextWrapper(base) {
 
     var mockAttributionTag: String? = null
 
     /**
      * Defaults to com.android.settings and uid 1000
      */
-    var mockAttributionSource: AttributionSource? = AttributionSource.Builder(1000).setPackageName("com.android.settings").setAttributionTag("*tag*").build()
+    var mockAttributionSource: AttributionSource? = AttributionSource.Builder(1000).setPackageName(basePackageName ?: "com.android.settings").setAttributionTag("*tag*").build()
     private val services = mutableMapOf<String, Any>()
     var mockApplicationContext: Context? = null
     var mockResources: Resources? = null
-    var mockPackageName: String? = null
+    var mockPackageName: String? = basePackageName
     var mockPackageResourcePath: String? = null
     var mockPackageCodePath: String? = null
     var mockAssets: AssetManager? = null
@@ -49,7 +49,26 @@ class MockContext(base: Context) : ContextWrapper(base) {
     var mockUnregisterReceiver: ((BroadcastReceiver?) -> Unit)? = null
 
     companion object {
-        fun createWithAppContext(classLoader: ClassLoader, mainThread: IApplicationThread, loadedApk: LoadedApk): Context {
+        fun createWithAppContext(classLoader: ClassLoader, mainThread: ActivityThread, packageName: String): Context {
+            // The android.jar plugin currently isn't letting us use these classes directly
+            val loadedApkClass = classLoader.loadClass("android.app.LoadedApk")
+            val loadedApkConstructor = loadedApkClass.getDeclaredConstructor(ActivityThread::class.java)
+            loadedApkConstructor.isAccessible = true
+            val loadedApk = loadedApkConstructor.newInstance(mainThread) as LoadedApk
+
+            val loadedApkPackageNameField = loadedApkClass.getDeclaredField("mPackageName")
+            loadedApkPackageNameField.isAccessible = true
+            loadedApkPackageNameField.set(loadedApk, packageName)
+
+            val loadedApkApplicationInfoField = loadedApkClass.getDeclaredField("mApplicationInfo")
+            loadedApkApplicationInfoField.isAccessible = true
+            val applicationInfo = loadedApkApplicationInfoField.get(loadedApk) as ApplicationInfo
+            applicationInfo.packageName = packageName
+
+            return createWithAppContext(classLoader, mainThread, loadedApk, packageName)
+        }
+
+        fun createWithAppContext(classLoader: ClassLoader, mainThread: ActivityThread, loadedApk: LoadedApk, packageName: String? = null): Context {
             // The android.jar plugin currently isn't letting us use these classes directly
             val contextImplClass = classLoader.loadClass("android.app.ContextImpl")
             val contextImplConstructor = contextImplClass.getDeclaredMethod("createAppContext",
@@ -57,7 +76,7 @@ class MockContext(base: Context) : ContextWrapper(base) {
             contextImplConstructor.isAccessible = true
 
             val context = contextImplConstructor.invoke(null, mainThread, loadedApk) as Context
-            return MockContext(context)
+            return MockContext(context, packageName)
         }
     }
 
