@@ -23,19 +23,12 @@ MockContext.createWithAppContext(classLoader, mainThread, "com.android.settings"
 ```kts
 // settings.gradle.kts
 
-pluginManagement {
+dependencyResolutionManagement {
     repositories {
         maven {
             url = uri("https://jitpack.io")
         }
         ...
-    }
-    resolutionStrategy {
-        eachPlugin {
-            if (requested.id.id == "com.penumbraos.app-process-mocks") {
-                useModule("com.github.PenumbraOS.app_process-mocks:appProcessMocks:${requested.version}")
-            }
-        }
     }
 }
 ```
@@ -43,7 +36,7 @@ pluginManagement {
 ```kts
 // build.gradle.kts
 
-plugins {
-    id("com.penumbraos.app-process-mocks") version "1.0.1"
+dependencies {
+    implementation("com.github.PenumbraOS:app_process-mocks:1.0.1")
 }
 ```
