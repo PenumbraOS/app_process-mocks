@@ -2,7 +2,7 @@ plugins {
     id("com.android.library") version "8.6.0"
     kotlin("android") version "1.8.0"
 
-    id("im.agg.android12-system-jars") version "1.0.2"
+    id("im.agg.android12-system-jars") version "1.0.4"
 }
 
 android {
