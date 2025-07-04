@@ -10,6 +10,7 @@ import android.content.ContextWrapper
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ApplicationInfo
+import android.content.pm.PackageManager
 import android.content.res.AssetManager
 import android.content.res.Resources
 import android.os.Looper
@@ -41,6 +42,7 @@ class MockContext(base: Context, basePackageName: String? = null) : ContextWrapp
     var mockExternalFilesDirs: Array<File>? = null
     var mockObbDirs: Array<File>? = null
     var mockExternalMediaDirs: Array<File>? = null
+    var mockPackageManager: PackageManager? = null
 
     var mockStartActivity: ((Intent) -> Unit)? = null
     var mockStartService: ((Intent) -> ComponentName?)? = null
@@ -154,6 +156,32 @@ class MockContext(base: Context, basePackageName: String? = null) : ContextWrapp
 
     override fun getExternalMediaDirs(): Array<File> {
         return mockExternalMediaDirs ?: super.getExternalMediaDirs()
+    }
+
+    override fun getPackageManager(): PackageManager {
+        return mockPackageManager ?: createPackageManager()
+    }
+
+    private fun createPackageManager(): PackageManager {
+        return try {
+            super.getPackageManager()
+        } catch (e: Exception) {
+            val systemPackageManager = try {
+                val contextClass = Class.forName("android.app.ContextImpl")
+                val getSystemContextMethod = contextClass.getDeclaredMethod("getSystemContext")
+                getSystemContextMethod.isAccessible = true
+                val systemContext = getSystemContextMethod.invoke(null) as Context
+                systemContext.packageManager
+            } catch (e: Exception) {
+                null
+            }
+
+            if (systemPackageManager != null && mockPackageManager == null) {
+                mockPackageManager = systemPackageManager
+            }
+            
+            systemPackageManager ?: super.getPackageManager()
+        }
     }
 
     override fun startActivity(intent: Intent) {
