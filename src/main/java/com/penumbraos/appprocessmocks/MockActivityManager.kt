@@ -2,6 +2,9 @@ package com.penumbraos.appprocessmocks
 
 import android.annotation.SuppressLint
 import android.app.ActivityManager
+import android.app.ActivityManagerNative
+import android.app.IActivityManager
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.util.Log
@@ -12,11 +15,27 @@ private const val TAG = "MockActivityManager"
 class MockActivityManager {
     companion object {
         @SuppressLint("DiscouragedPrivateApi")
+        fun getOriginalManager(): ActivityManager? {
+            val getServiceMethod = ActivityManager::class.java.getDeclaredMethod("getService")
+            getServiceMethod.isAccessible = true
+            return getServiceMethod.invoke(null) as ActivityManager?
+        }
+
+        @SuppressLint("PrivateApi")
+        fun getOriginalIActivityManagerProxy(): IActivityManager? {
+            val serviceManagerClass = Class.forName("android.os.ServiceManager")
+            val getServiceMethod = serviceManagerClass.getMethod("getService", String::class.java)
+            val activityManagerBinder = getServiceMethod.invoke(null, Context.ACTIVITY_SERVICE)
+
+            val activityManagerStubClass = Class.forName("android.app.IActivityManager\$Stub")
+            val asInterfaceMethod = activityManagerStubClass.getMethod("asInterface", android.os.IBinder::class.java)
+            return asInterfaceMethod.invoke(null, activityManagerBinder) as? IActivityManager
+        }
+
+        @SuppressLint("DiscouragedPrivateApi")
         fun sendBroadcast(intent: Intent) {
             try {
-                val getServiceMethod = ActivityManager::class.java.getDeclaredMethod("getService")
-                getServiceMethod.isAccessible = true
-                val activityManager = getServiceMethod.invoke(null)
+                val activityManager = getOriginalManager()
 
                 if (activityManager == null) {
                     Log.e(TAG, "Activity manager is null. Cannot send start broadcast")

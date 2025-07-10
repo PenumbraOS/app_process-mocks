@@ -13,8 +13,15 @@ import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.content.res.AssetManager
 import android.content.res.Resources
+import android.os.Handler
 import android.os.Looper
+import android.util.Log
+import com.penumbraos.appprocessmocks.MockActivityManager
 import java.io.File
+import java.lang.reflect.InvocationHandler
+import java.lang.reflect.Proxy
+
+private const val TAG = "MockContext"
 
 @SuppressLint("DiscouragedPrivateApi", "UnspecifiedRegisterReceiverFlag")
 class MockContext(base: Context, basePackageName: String? = null) : ContextWrapper(base) {
@@ -47,8 +54,7 @@ class MockContext(base: Context, basePackageName: String? = null) : ContextWrapp
     var mockStartActivity: ((Intent) -> Unit)? = null
     var mockStartService: ((Intent) -> ComponentName?)? = null
     var mockSendBroadcast: ((Intent) -> Unit)? = null
-    var mockRegisterReceiver: ((BroadcastReceiver?, IntentFilter) -> Intent?)? = null
-    var mockUnregisterReceiver: ((BroadcastReceiver?) -> Unit)? = null
+    var mockReceivers = mutableMapOf<BroadcastReceiver, Any>()
 
     companion object {
         fun createWithAppContext(classLoader: ClassLoader, mainThread: ActivityThread, packageName: String): Context {
@@ -196,12 +202,93 @@ class MockContext(base: Context, basePackageName: String? = null) : ContextWrapp
         mockSendBroadcast?.invoke(intent) ?: super.sendBroadcast(intent)
     }
 
+    @SuppressLint("PrivateApi")
     override fun registerReceiver(receiver: BroadcastReceiver?, filter: IntentFilter): Intent? {
-        return mockRegisterReceiver?.invoke(receiver, filter) ?: super.registerReceiver(receiver, filter)
+        if (receiver == null) {
+            return null
+        }
+
+        val activityManager = MockActivityManager.getOriginalIActivityManagerProxy()
+
+        if (activityManager == null) {
+            Log.e(TAG, "Activity manager is null. Cannot register receiver")
+            return null
+        }
+
+        // Create IIntentReceiver wrapper for our BroadcastReceiver
+        val intentReceiverStubClass = Class.forName("android.content.IIntentReceiver\$Stub")
+        val intentReceiver = Proxy.newProxyInstance(
+            intentReceiverStubClass.classLoader,
+            arrayOf(Class.forName("android.content.IIntentReceiver")),
+            InvocationHandler { proxy, method, args ->
+                when (method.name) {
+                    // void performReceive(Intent intent, int resultCode, String data, Bundle extras, boolean ordered, boolean sticky, int sendingUser)
+                    "performReceive" -> {
+                        val intent = args[0] as Intent
+                        val handler = Handler(Looper.getMainLooper())
+                        handler.post {
+                            receiver.onReceive(null, intent)
+                        }
+                        null
+                    }
+                    "asBinder" -> {
+                        // Return the proxy itself as IBinder
+                        proxy
+                    }
+                    else -> null
+                }
+            }
+        )
+
+        val registerReceiverMethod = activityManager::class.java.getMethod(
+            "registerReceiver",
+            Class.forName("android.app.IApplicationThread"),  // caller
+            String::class.java,                               // callerPackage
+            Class.forName("android.content.IIntentReceiver"), // receiver
+            IntentFilter::class.java,                         // filter
+            String::class.java,                               // requiredPermission
+            Int::class.java                                   // userId
+        )
+
+        val intent = registerReceiverMethod.invoke(
+            activityManager,
+            null,             // caller
+            null,             // callerPackage
+            intentReceiver,   // receiver
+            filter,           // filter
+            null,             // requiredPermission
+            0
+        ) as? Intent
+
+        mockReceivers[receiver] = intentReceiver
+
+        return intent
     }
 
     override fun unregisterReceiver(receiver: BroadcastReceiver?) {
-        mockUnregisterReceiver?.invoke(receiver) ?: super.unregisterReceiver(receiver)
+        if (receiver == null) {
+            return
+        }
+
+        val intentReceiver = mockReceivers.remove(receiver) ?: return
+
+        val activityManager = MockActivityManager.getOriginalIActivityManagerProxy()
+
+        if (activityManager == null) {
+            Log.e(TAG, "Activity manager is null. Cannot unregister receiver")
+            return
+        }
+
+        val unregisterReceiverMethod = activityManager.javaClass.getMethod(
+            "unregisterReceiver",
+            Class.forName("android.content.IIntentReceiver")
+        )
+
+        try {
+            unregisterReceiverMethod.invoke(activityManager, intentReceiver)
+        } catch (e: Exception) {
+            // Ignore
+        }
     }
 
     fun setService(name: String, service: Any) {
