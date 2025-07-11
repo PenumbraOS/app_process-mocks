@@ -247,7 +247,8 @@ class MockContext(base: Context, basePackageName: String? = null) : ContextWrapp
             Class.forName("android.content.IIntentReceiver"), // receiver
             IntentFilter::class.java,                         // filter
             String::class.java,                               // requiredPermission
-            Int::class.java                                   // userId
+            Int::class.java,                                  // userId
+            Int::class.java                                   // flags
         )
         registerReceiverMethod.isAccessible = true
 
@@ -258,7 +259,8 @@ class MockContext(base: Context, basePackageName: String? = null) : ContextWrapp
             intentReceiver,   // receiver
             filter,           // filter
             null,             // requiredPermission
-            0
+            0,                // userId
+            0                 // flags
         ) as? Intent
 
         mockReceivers[receiver] = intentReceiver
