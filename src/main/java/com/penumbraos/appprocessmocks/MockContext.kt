@@ -7,6 +7,7 @@ import android.content.ComponentName
 import android.content.ContentResolver
 import android.content.Context
 import android.content.ContextWrapper
+import android.content.IIntentReceiver
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ApplicationInfo
@@ -216,29 +217,22 @@ class MockContext(base: Context, basePackageName: String? = null) : ContextWrapp
         }
 
         // Create IIntentReceiver wrapper for our BroadcastReceiver
-        val intentReceiverStubClass = Class.forName("android.content.IIntentReceiver\$Stub")
-        val intentReceiver = Proxy.newProxyInstance(
-            intentReceiverStubClass.classLoader,
-            arrayOf(Class.forName("android.content.IIntentReceiver")),
-            InvocationHandler { proxy, method, args ->
-                when (method.name) {
-                    // void performReceive(Intent intent, int resultCode, String data, Bundle extras, boolean ordered, boolean sticky, int sendingUser)
-                    "performReceive" -> {
-                        val intent = args[0] as Intent
-                        val handler = Handler(Looper.getMainLooper())
-                        handler.post {
-                            receiver.onReceive(null, intent)
-                        }
-                        null
-                    }
-                    "asBinder" -> {
-                        // Return the proxy itself as IBinder
-                        proxy
-                    }
-                    else -> null
+        val intentReceiver = object : IIntentReceiver.Stub() {
+            override fun performReceive(
+                intent: Intent,
+                resultCode: Int,
+                data: String?,
+                extras: android.os.Bundle?,
+                ordered: Boolean,
+                sticky: Boolean,
+                sendingUser: Int
+            ) {
+                val handler = Handler(Looper.getMainLooper())
+                handler.post {
+                    receiver.onReceive(this@MockContext, intent)
                 }
             }
-        )
+        }
 
         val registerReceiverMethod = activityManager::class.java.getDeclaredMethod(
             "registerReceiver",
