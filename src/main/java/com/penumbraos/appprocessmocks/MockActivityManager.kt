@@ -2,7 +2,6 @@ package com.penumbraos.appprocessmocks
 
 import android.annotation.SuppressLint
 import android.app.ActivityManager
-import android.app.ActivityManagerNative
 import android.app.IActivityManager
 import android.content.Context
 import android.content.Intent
@@ -15,10 +14,10 @@ private const val TAG = "MockActivityManager"
 class MockActivityManager {
     companion object {
         @SuppressLint("DiscouragedPrivateApi")
-        fun getOriginalManager(): ActivityManager? {
+        fun getOriginalManager(): Any? {
             val getServiceMethod = ActivityManager::class.java.getDeclaredMethod("getService")
             getServiceMethod.isAccessible = true
-            return getServiceMethod.invoke(null) as ActivityManager?
+            return getServiceMethod.invoke(null)
         }
 
         @SuppressLint("PrivateApi")
