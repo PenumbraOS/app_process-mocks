@@ -240,7 +240,7 @@ class MockContext(base: Context, basePackageName: String? = null) : ContextWrapp
             }
         )
 
-        val registerReceiverMethod = activityManager::class.java.getMethod(
+        val registerReceiverMethod = activityManager::class.java.getDeclaredMethod(
             "registerReceiver",
             Class.forName("android.app.IApplicationThread"),  // caller
             String::class.java,                               // callerPackage
@@ -249,6 +249,7 @@ class MockContext(base: Context, basePackageName: String? = null) : ContextWrapp
             String::class.java,                               // requiredPermission
             Int::class.java                                   // userId
         )
+        registerReceiverMethod.isAccessible = true
 
         val intent = registerReceiverMethod.invoke(
             activityManager,
@@ -279,10 +280,11 @@ class MockContext(base: Context, basePackageName: String? = null) : ContextWrapp
             return
         }
 
-        val unregisterReceiverMethod = activityManager.javaClass.getMethod(
+        val unregisterReceiverMethod = activityManager.javaClass.getDeclaredMethod(
             "unregisterReceiver",
             Class.forName("android.content.IIntentReceiver")
         )
+        unregisterReceiverMethod.isAccessible = true
 
         try {
             unregisterReceiverMethod.invoke(activityManager, intentReceiver)
