@@ -1,3 +1,5 @@
+package com.penumbraos.appprocessmocks
+
 import android.annotation.SuppressLint
 import android.app.ActivityThread
 import android.app.LoadedApk
@@ -10,6 +12,7 @@ import android.content.ContextWrapper
 import android.content.IIntentReceiver
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.SharedPreferences
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.content.res.AssetManager
@@ -17,14 +20,11 @@ import android.content.res.Resources
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
-import com.penumbraos.appprocessmocks.MockActivityManager
 import java.io.File
-import java.lang.reflect.InvocationHandler
-import java.lang.reflect.Proxy
 
 private const val TAG = "MockContext"
 
-@SuppressLint("DiscouragedPrivateApi", "UnspecifiedRegisterReceiverFlag")
+@SuppressLint("DiscouragedPrivateApi", "PrivateApi", "UnspecifiedRegisterReceiverFlag")
 class MockContext(base: Context, basePackageName: String? = null) : ContextWrapper(base) {
 
     var mockAttributionTag: String? = null
@@ -35,6 +35,7 @@ class MockContext(base: Context, basePackageName: String? = null) : ContextWrapp
     var mockAttributionSource: AttributionSource? = AttributionSource.Builder(1000).setPackageName(basePackageName ?: "com.android.settings").setAttributionTag("*tag*").build()
     private val services = mutableMapOf<String, Any>()
     var mockApplicationContext: Context? = null
+    var mockClassLoader: ClassLoader? = null
     var mockResources: Resources? = null
     var mockPackageName: String? = basePackageName
     var mockPackageResourcePath: String? = null
@@ -56,6 +57,7 @@ class MockContext(base: Context, basePackageName: String? = null) : ContextWrapp
     var mockStartService: ((Intent) -> ComponentName?)? = null
     var mockSendBroadcast: ((Intent) -> Unit)? = null
     var mockReceivers = mutableMapOf<BroadcastReceiver, Any>()
+    var mockSharedPreferences = mutableMapOf<String, SharedPreferences>()
 
     companion object {
         fun createWithAppContext(classLoader: ClassLoader, mainThread: ActivityThread, packageName: String): Context {
@@ -85,7 +87,9 @@ class MockContext(base: Context, basePackageName: String? = null) : ContextWrapp
             contextImplConstructor.isAccessible = true
 
             val context = contextImplConstructor.invoke(null, mainThread, loadedApk) as Context
-            return MockContext(context, packageName)
+            val mockContext = MockContext(context, packageName)
+            mockContext.mockClassLoader = classLoader
+            return mockContext
         }
     }
 
@@ -103,6 +107,10 @@ class MockContext(base: Context, basePackageName: String? = null) : ContextWrapp
 
     override fun getApplicationContext(): Context {
         return mockApplicationContext ?: super.getApplicationContext()
+    }
+
+    override fun getClassLoader(): ClassLoader? {
+        return mockClassLoader ?: super.getClassLoader()
     }
 
     override fun getResources(): Resources {
@@ -123,6 +131,10 @@ class MockContext(base: Context, basePackageName: String? = null) : ContextWrapp
 
     override fun getAssets(): AssetManager {
         return mockAssets ?: super.getAssets()
+    }
+
+    override fun getSharedPreferences(name: String?, mode: Int): SharedPreferences? {
+        return mockSharedPreferences[name] ?: super.getSharedPreferences(name, mode)
     }
 
     override fun getContentResolver(): ContentResolver {
@@ -284,12 +296,32 @@ class MockContext(base: Context, basePackageName: String? = null) : ContextWrapp
 
         try {
             unregisterReceiverMethod.invoke(activityManager, intentReceiver)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             // Ignore
         }
     }
 
     fun setService(name: String, service: Any) {
         services[name] = service
+    }
+
+    fun setSharedPreferences(name: String, sharedPreferences: SharedPreferences) {
+        mockSharedPreferences[name] = sharedPreferences
+    }
+
+    override fun checkPermission(permission: String, pid: Int, uid: Int): Int {
+        return PackageManager.PERMISSION_GRANTED
+    }
+
+    override fun checkCallingPermission(permission: String): Int {
+        return PackageManager.PERMISSION_GRANTED
+    }
+
+    override fun checkCallingOrSelfPermission(permission: String): Int {
+        return PackageManager.PERMISSION_GRANTED
+    }
+
+    override fun checkSelfPermission(permission: String): Int {
+        return PackageManager.PERMISSION_GRANTED
     }
 }
