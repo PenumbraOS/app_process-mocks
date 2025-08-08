@@ -60,7 +60,7 @@ class MockContext(base: Context, basePackageName: String? = null) : ContextWrapp
     var mockSharedPreferences = mutableMapOf<String, SharedPreferences>()
 
     companion object {
-        fun createWithAppContext(classLoader: ClassLoader, mainThread: ActivityThread, packageName: String): Context {
+        fun createWithAppContext(classLoader: ClassLoader, mainThread: ActivityThread, packageName: String): MockContext {
             // The android.jar plugin currently isn't letting us use these classes directly
             val loadedApkClass = classLoader.loadClass("android.app.LoadedApk")
             val loadedApkConstructor = loadedApkClass.getDeclaredConstructor(ActivityThread::class.java)
@@ -79,7 +79,7 @@ class MockContext(base: Context, basePackageName: String? = null) : ContextWrapp
             return createWithAppContext(classLoader, mainThread, loadedApk, packageName)
         }
 
-        fun createWithAppContext(classLoader: ClassLoader, mainThread: ActivityThread, loadedApk: LoadedApk, packageName: String? = null): Context {
+        fun createWithAppContext(classLoader: ClassLoader, mainThread: ActivityThread, loadedApk: LoadedApk, packageName: String? = null): MockContext {
             // The android.jar plugin currently isn't letting us use these classes directly
             val contextImplClass = classLoader.loadClass("android.app.ContextImpl")
             val contextImplConstructor = contextImplClass.getDeclaredMethod("createAppContext",
