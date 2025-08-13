@@ -49,6 +49,7 @@ class MockContext(base: Context, basePackageName: String? = null) : ContextWrapp
     var mockCodeCacheDir: File? = null
     var mockExternalCacheDirs: Array<File>? = null
     var mockExternalFilesDirs: Array<File>? = null
+    var mockDataDir: File? = null
     var mockObbDirs: Array<File>? = null
     var mockExternalMediaDirs: Array<File>? = null
     var mockPackageManager: PackageManager? = null
@@ -171,6 +172,10 @@ class MockContext(base: Context, basePackageName: String? = null) : ContextWrapp
 
     override fun getObbDirs(): Array<File> {
         return mockObbDirs ?: super.getObbDirs()
+    }
+
+    override fun getDataDir(): File? {
+        return mockDataDir ?: super.getDataDir()
     }
 
     override fun getExternalMediaDirs(): Array<File> {
